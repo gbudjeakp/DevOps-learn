@@ -22,8 +22,14 @@ describe('Button Component', () => {
     rerender(<Button variant="danger">Test</Button>)
     expect(screen.getByRole('button')).toHaveClass('btn--danger')
 
+    rerender(<Button variant="warning">Test</Button>)
+    expect(screen.getByRole('button')).toHaveClass('btn--warning')
+
     rerender(<Button variant="outline">Test</Button>)
     expect(screen.getByRole('button')).toHaveClass('btn--outline')
+
+    rerender(<Button variant="ghost">Test</Button>)
+    expect(screen.getByRole('button')).toHaveClass('btn--ghost')
   })
 
   it('should render different sizes correctly', () => {
@@ -103,5 +109,61 @@ describe('Button Component', () => {
 
     expect(screen.getByText('Icon')).toBeInTheDocument()
     expect(screen.getByText('Text')).toBeInTheDocument()
+  })
+
+  it('should handle loading state', () => {
+    render(<Button loading>Loading Button</Button>)
+    const button = screen.getByRole('button')
+
+    expect(button).toBeDisabled()
+    expect(button).toHaveClass('btn--loading')
+    expect(button.querySelector('.btn-spinner')).toBeInTheDocument()
+  })
+
+  it('should render with icon when provided', () => {
+    const TestIcon = () => <span data-testid="test-icon">Icon</span>
+    render(<Button icon={<TestIcon />}>With Icon</Button>)
+
+    expect(screen.getByTestId('test-icon')).toBeInTheDocument()
+    expect(screen.getByText('With Icon')).toBeInTheDocument()
+  })
+
+  it('should handle press state correctly', () => {
+    render(<Button>Press me</Button>)
+    const button = screen.getByRole('button')
+
+    // Simulate mouse down (press)
+    fireEvent.mouseDown(button)
+    expect(button).toHaveClass('btn--pressed')
+
+    // Simulate mouse up (release)
+    fireEvent.mouseUp(button)
+    expect(button).not.toHaveClass('btn--pressed')
+  })
+
+  it('should not show loading spinner when not loading', () => {
+    render(<Button>Normal Button</Button>)
+    const button = screen.getByRole('button')
+
+    expect(button.querySelector('.btn-spinner')).not.toBeInTheDocument()
+    expect(button).not.toHaveClass('btn--loading')
+  })
+
+  it('should disable click events when loading', () => {
+    const handleClick = vi.fn()
+    render(<Button onClick={handleClick} loading>Loading</Button>)
+
+    const button = screen.getByRole('button')
+    fireEvent.click(button)
+
+    expect(handleClick).not.toHaveBeenCalled()
+  })
+
+  it('should render icon-only button correctly', () => {
+    const TestIcon = () => <span data-testid="test-icon">Icon</span>
+    render(<Button icon={<TestIcon />} />)
+
+    expect(screen.getByTestId('test-icon')).toBeInTheDocument()
+    expect(screen.getByRole('button')).toBeInTheDocument()
   })
 })
