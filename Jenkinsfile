@@ -1,5 +1,5 @@
 pipeline {
-  agent any
+  agent { label 'code-monger-15' }
 
   environment {
     RUNRIGHT_URL     = credentials('runright-url')
