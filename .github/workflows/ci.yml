@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    env:
+      RUNRIGHT_API_KEY: ${{ secrets.RUNRIGHT_API_KEY }}
+      RUNRIGHT_BIN: ${{ secrets.RUNRIGHT_BIN_PATH }}
+      RUNRIGHT_URL: ${{ secrets.RUNRIGHT_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          "$RUNRIGHT_BIN" monitor --export http --http-url "$RUNRIGHT_URL" \
+            --job-id "$GITHUB_RUN_ID-install" &
+          RR_PID=$!
+          npm ci
+          kill -TERM $RR_PID 2>/dev/null || true
+          wait $RR_PID 2>/dev/null || true
+
+      - name: Lint
+        shell: bash
+        run: |
+          "$RUNRIGHT_BIN" monitor --export http --http-url "$RUNRIGHT_URL" \
+            --job-id "$GITHUB_RUN_ID-lint" &
+          RR_PID=$!
+          npm run lint
+          kill -TERM $RR_PID 2>/dev/null || true
+          wait $RR_PID 2>/dev/null || true
+
+      - name: Test
+        shell: bash
+        run: |
+          "$RUNRIGHT_BIN" monitor --export http --http-url "$RUNRIGHT_URL" \
+            --job-id "$GITHUB_RUN_ID-test" &
+          RR_PID=$!
+          npm run test:run
+          kill -TERM $RR_PID 2>/dev/null || true
+          wait $RR_PID 2>/dev/null || true
+
+      - name: Build
+        shell: bash
+        run: |
+          "$RUNRIGHT_BIN" monitor --export http --http-url "$RUNRIGHT_URL" \
+            --job-id "$GITHUB_RUN_ID-build" &
+          RR_PID=$!
+          npm run build
+          kill -TERM $RR_PID 2>/dev/null || true
+          wait $RR_PID 2>/dev/null || true
