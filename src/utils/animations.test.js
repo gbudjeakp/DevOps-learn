@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   createAnimation,
   animations,
@@ -112,7 +112,7 @@ describe('Animation Utilities', () => {
 
   describe('createScrollAnimationObserver', () => {
     beforeEach(() => {
-      global.IntersectionObserver = vi.fn(() => ({
+      globalThis.IntersectionObserver = vi.fn(() => ({
         observe: vi.fn(),
         unobserve: vi.fn(),
         disconnect: vi.fn(),
@@ -120,7 +120,7 @@ describe('Animation Utilities', () => {
     })
 
     it('should create intersection observer with default options', () => {
-      const observer = createScrollAnimationObserver()
+      createScrollAnimationObserver()
       expect(IntersectionObserver).toHaveBeenCalledWith(
         expect.any(Function),
         {
@@ -131,7 +131,7 @@ describe('Animation Utilities', () => {
     })
 
     it('should create intersection observer with custom options', () => {
-      const observer = createScrollAnimationObserver({
+      createScrollAnimationObserver({
         threshold: 0.5,
         rootMargin: '10px',
         animationClass: 'custom-animate',
