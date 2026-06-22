@@ -25,31 +25,31 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install dependencies
-        uses: gbudjeakp/run-right@v1.0.0
+        uses: gbudjeakp/run-right@v1.0.1
         with:
           run: npm install
           export: file
           job-id: devops-learn-install-${{ github.run_number }}
 
       - name: Lint
-        uses: gbudjeakp/run-right@v1.0.0
+        uses: gbudjeakp/run-right@v1.0.1
         with:
           run: npm run lint
           export: file
           job-id: devops-learn-lint-${{ github.run_number }}
 
       - name: Test
-        uses: gbudjeakp/run-right@v1.0.0
+        uses: gbudjeakp/run-right@v1.0.1
         with:
           run: npm test -- --watchAll=false
           export: file
           job-id: devops-learn-test-${{ github.run_number }}
 
       - name: Build
-        uses: gbudjeakp/run-right@v1.0.0
+        uses: gbudjeakp/run-right@v1.0.1
         with:
           run: npm run build
           export: file
