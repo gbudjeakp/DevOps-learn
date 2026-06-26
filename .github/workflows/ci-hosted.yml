@@ -33,7 +33,7 @@ jobs:
           run: npm install
           version: v1.2.2
           export: file
-          job-id: devops-learn-install-${{ github.run_number }}
+          job-id: devops-learn-hosted-install
 
       - name: Lint
         uses: gbudjeakp/run-right@v1.2.2
@@ -41,7 +41,7 @@ jobs:
           run: npm run lint
           version: v1.2.2
           export: file
-          job-id: devops-learn-lint-${{ github.run_number }}
+          job-id: devops-learn-hosted-lint
 
       - name: Test
         uses: gbudjeakp/run-right@v1.2.2
@@ -49,7 +49,7 @@ jobs:
           run: npm run test:run
           version: v1.2.2
           export: file
-          job-id: devops-learn-test-${{ github.run_number }}
+          job-id: devops-learn-hosted-test
 
       - name: Build
         uses: gbudjeakp/run-right@v1.2.2
@@ -57,4 +57,4 @@ jobs:
           run: npm run build
           version: v1.2.2
           export: file
-          job-id: devops-learn-build-${{ github.run_number }}
+          job-id: devops-learn-hosted-build
