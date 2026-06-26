@@ -31,6 +31,7 @@ jobs:
         uses: gbudjeakp/run-right@v1.2.1
         with:
           run: npm install
+          version: v1.2.1
           export: file
           job-id: devops-learn-install-${{ github.run_number }}
 
@@ -38,6 +39,7 @@ jobs:
         uses: gbudjeakp/run-right@v1.2.1
         with:
           run: npm run lint
+          version: v1.2.1
           export: file
           job-id: devops-learn-lint-${{ github.run_number }}
 
@@ -45,6 +47,7 @@ jobs:
         uses: gbudjeakp/run-right@v1.2.1
         with:
           run: npm run test:run
+          version: v1.2.1
           export: file
           job-id: devops-learn-test-${{ github.run_number }}
 
@@ -52,5 +55,6 @@ jobs:
         uses: gbudjeakp/run-right@v1.2.1
         with:
           run: npm run build
+          version: v1.2.1
           export: file
           job-id: devops-learn-build-${{ github.run_number }}
