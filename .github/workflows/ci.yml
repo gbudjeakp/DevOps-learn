@@ -18,42 +18,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
       - name: Install dependencies
-        shell: bash
-        run: |
-          "$RUNRIGHT_BIN" monitor --export http --http-url "$RUNRIGHT_URL" \
-            --job-id "$GITHUB_RUN_ID-install" &
-          RR_PID=$!
-          npm ci
-          kill -TERM $RR_PID 2>/dev/null || true
-          wait $RR_PID 2>/dev/null || true
+        uses: gbudjeakp/run-right@v1.2.1
+        with:
+          run: npm ci
+          export: http
+          http-url: ${{ secrets.RUNRIGHT_URL }}
+          job-id: devops-learn-install-${{ github.run_number }}
 
       - name: Lint
-        shell: bash
-        run: |
-          "$RUNRIGHT_BIN" monitor --export http --http-url "$RUNRIGHT_URL" \
-            --job-id "$GITHUB_RUN_ID-lint" &
-          RR_PID=$!
-          npm run lint
-          kill -TERM $RR_PID 2>/dev/null || true
-          wait $RR_PID 2>/dev/null || true
+        uses: gbudjeakp/run-right@v1.2.1
+        with:
+          run: npm run lint
+          export: http
+          http-url: ${{ secrets.RUNRIGHT_URL }}
+          job-id: devops-learn-lint-${{ github.run_number }}
 
       - name: Test
-        shell: bash
-        run: |
-          "$RUNRIGHT_BIN" monitor --export http --http-url "$RUNRIGHT_URL" \
-            --job-id "$GITHUB_RUN_ID-test" &
-          RR_PID=$!
-          npm run test:run
-          kill -TERM $RR_PID 2>/dev/null || true
-          wait $RR_PID 2>/dev/null || true
+        uses: gbudjeakp/run-right@v1.2.1
+        with:
+          run: npm run test:run
+          export: http
+          http-url: ${{ secrets.RUNRIGHT_URL }}
+          job-id: devops-learn-test-${{ github.run_number }}
 
       - name: Build
-        shell: bash
-        run: |
-          "$RUNRIGHT_BIN" monitor --export http --http-url "$RUNRIGHT_URL" \
-            --job-id "$GITHUB_RUN_ID-build" &
-          RR_PID=$!
-          npm run build
-          kill -TERM $RR_PID 2>/dev/null || true
-          wait $RR_PID 2>/dev/null || true
+        uses: gbudjeakp/run-right@v1.2.1
+        with:
+          run: npm run build
+          export: http
+          http-url: ${{ secrets.RUNRIGHT_URL }}
+          job-id: devops-learn-build-${{ github.run_number }}
