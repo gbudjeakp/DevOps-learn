@@ -1,18 +1,8 @@
 name: CI (GitHub-hosted)
 
 # Runs on GitHub-hosted machines (ubuntu-latest), unlike ci.yml which uses a self-hosted runner.
-# Uses the native run-right GitHub Action instead of calling the binary directly.
-#
-# HTTP export to the RunRight backend is disabled by default because the backend
-# is on a private Tailscale address (100.118.171.101:8080) that GitHub-hosted
-# runners cannot reach. Metrics are exported to a file artifact instead.
-#
-# To enable HTTP export:
-#   Option A — expose the backend publicly (reverse proxy / cloud deploy)
-#   Option B — add Tailscale to this workflow:
-#              uses: tailscale/github-action@v2
-#              with: { oauth-client-id: ..., oauth-secret: ..., tags: tag:ci }
-#              then add: export: file,http  and  http-url: ${{ vars.RUNRIGHT_URL }}
+# Uses standalone mode so RunRight monitors the full pipeline as a single session and posts
+# exactly one PR comment with machine recommendations at the end.
 
 on: [push, pull_request]
 
@@ -27,34 +17,32 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install dependencies
-        uses: gbudjeakp/run-right@v1.2.3
+      - name: Start RunRight monitoring
+        uses: gbudjeakp/run-right@v1
         with:
-          run: npm install
-          version: v1.2.3
+          step: start
+          job-id: devops-learn-${{ github.run_id }}
           export: file
-          job-id: devops-learn-hosted-install
+          pr-comment: "false"
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Lint
-        uses: gbudjeakp/run-right@v1.2.3
-        with:
-          run: npm run lint
-          version: v1.2.3
-          export: file
-          job-id: devops-learn-hosted-lint
+        run: npm run lint
 
       - name: Test
-        uses: gbudjeakp/run-right@v1.2.3
-        with:
-          run: npm run test:run
-          version: v1.2.3
-          export: file
-          job-id: devops-learn-hosted-test
+        run: npm run test:run
 
       - name: Build
-        uses: gbudjeakp/run-right@v1.2.3
+        run: npm run build
+
+      - name: Stop monitoring and post PR comment
+        if: always()
+        uses: gbudjeakp/run-right@v1
         with:
-          run: npm run build
-          version: v1.2.3
+          step: stop
+          job-id: devops-learn-${{ github.run_id }}
           export: file
-          job-id: devops-learn-hosted-build
+          pr-comment: "true"
+          upload-artifact: "true"
