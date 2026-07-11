@@ -24,33 +24,36 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Start RunRight monitoring
+      - name: Install dependencies
         uses: gbudjeakp/run-right@v1
         with:
-          step: start
-          job-id: devops-learn-github-hosted
+          run: npm ci
+          job-id: devops-learn-github-hosted-install
           export: file
           pr-comment: "false"
 
-      - name: Install dependencies
-        run: npm ci
-
       - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm run test:run
-
-      - name: Build
-        run: npm run build
-
-      - name: Stop monitoring and post PR comment
-        id: rr
-        if: always()
         uses: gbudjeakp/run-right@v1
         with:
-          step: stop
-          job-id: devops-learn-github-hosted
+          run: npm run lint
+          job-id: devops-learn-github-hosted-lint
+          export: file
+          pr-comment: "false"
+
+      - name: Test
+        uses: gbudjeakp/run-right@v1
+        with:
+          run: npm run test:run
+          job-id: devops-learn-github-hosted-test
+          export: file
+          pr-comment: "false"
+
+      - name: Build
+        id: rr
+        uses: gbudjeakp/run-right@v1
+        with:
+          run: npm run build
+          job-id: devops-learn-github-hosted-build
           export: file
           pr-comment: "true"
           upload-artifact: "true"
