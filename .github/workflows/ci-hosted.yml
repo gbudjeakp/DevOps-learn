@@ -3,8 +3,13 @@ name: CI (GitHub-hosted)
 # Runs on GitHub-hosted machines (ubuntu-latest), unlike ci.yml which uses a self-hosted runner.
 # Uses standalone mode so RunRight monitors the full pipeline as a single session and posts
 # exactly one PR comment with machine recommendations at the end.
+# On pushes to main, if RunRight finds a cheaper machine it automatically opens a PR.
 
 on: [push, pull_request]
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   build:
@@ -12,6 +17,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -38,6 +45,7 @@ jobs:
         run: npm run build
 
       - name: Stop monitoring and post PR comment
+        id: rr
         if: always()
         uses: gbudjeakp/run-right@v1
         with:
@@ -46,3 +54,73 @@ jobs:
           export: file
           pr-comment: "true"
           upload-artifact: "true"
+
+      - name: Auto-PR with machine recommendation
+        if: >
+          always() &&
+          steps.rr.outputs.suggested-machine != '' &&
+          steps.rr.outputs.suggested-machine != steps.rr.outputs.detected-machine &&
+          github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUGGESTED: ${{ steps.rr.outputs.suggested-machine }}
+          DETECTED: ${{ steps.rr.outputs.detected-machine }}
+          RECS_JSON: ${{ steps.rr.outputs.recommendation-json }}
+        run: |
+          set -e
+
+          BRANCH="runright/recommend-${SUGGESTED}-$(date +%Y%m%d%H%M%S)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+
+          # Parse estimated monthly savings from recommendation JSON
+          SAVINGS=$(echo "$RECS_JSON" | jq -r '
+            if type == "array" and length > 0
+            then .[0] | (.cost_delta_usd_monthly // .cost_delta // empty) | . as $d |
+              if $d != null then "~$\(($d | fabs | . * 100 | round / 100))/mo" else empty end
+            else empty end
+          ' 2>/dev/null || true)
+
+          TITLE="RunRight: right-size CI runner to \`${SUGGESTED}\`"
+          [ -n "$SAVINGS" ] && TITLE="RunRight: right-size CI runner to \`${SUGGESTED}\` (save ${SAVINGS})"
+
+          # Write recommendation record into repo
+          mkdir -p .github
+          cat > .github/runright-latest-recommendation.md << EOF
+          ## RunRight Machine Recommendation
+
+          RunRight analysed the last CI run on \`main\` and found a more cost-effective option.
+
+          | | Machine |
+          |---|---|
+          | **Detected** | \`${DETECTED}\` |
+          | **Recommended** | \`${SUGGESTED}\` |
+          $([ -n "$SAVINGS" ] && echo "| **Estimated saving** | ${SAVINGS} |")
+
+          ### What to change
+
+          Update the \`runs-on:\` value in \`.github/workflows/ci.yml\` (or the Jenkins agent label
+          in \`Jenkinsfile\`) to match \`${SUGGESTED}\` or an equivalent self-hosted runner.
+
+          <details>
+          <summary>Full recommendation JSON</summary>
+
+          \`\`\`json
+          ${RECS_JSON}
+          \`\`\`
+          </details>
+
+          ---
+          *Opened automatically by [RunRight](https://github.com/gbudjeakp/run-right)*
+          EOF
+
+          git add .github/runright-latest-recommendation.md
+          git commit -m "RunRight: recommend ${SUGGESTED} (detected: ${DETECTED})"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "$TITLE" \
+            --body "$(cat .github/runright-latest-recommendation.md)" \
+            --base main
