@@ -16,6 +16,10 @@ name: CI (GitHub-hosted)
 
 on: [push, pull_request]
 
+permissions:
+  issues: write
+  pull-requests: write
+
 jobs:
   build:
     runs-on: ubuntu-22.04
