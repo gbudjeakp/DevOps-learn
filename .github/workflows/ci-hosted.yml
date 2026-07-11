@@ -28,7 +28,7 @@ jobs:
         uses: gbudjeakp/run-right@v1
         with:
           step: start
-          job-id: devops-learn-${{ github.run_id }}
+          job-id: devops-learn-github-hosted
           export: file
           pr-comment: "false"
 
@@ -50,7 +50,7 @@ jobs:
         uses: gbudjeakp/run-right@v1
         with:
           step: stop
-          job-id: devops-learn-${{ github.run_id }}
+          job-id: devops-learn-github-hosted
           export: file
           pr-comment: "true"
           upload-artifact: "true"
