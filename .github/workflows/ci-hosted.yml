@@ -1,60 +1,129 @@
 name: CI (GitHub-hosted)
 
 # Runs on GitHub-hosted machines (ubuntu-latest), unlike ci.yml which uses a self-hosted runner.
-# Uses the native run-right GitHub Action instead of calling the binary directly.
-#
-# HTTP export to the RunRight backend is disabled by default because the backend
-# is on a private Tailscale address (100.118.171.101:8080) that GitHub-hosted
-# runners cannot reach. Metrics are exported to a file artifact instead.
-#
-# To enable HTTP export:
-#   Option A — expose the backend publicly (reverse proxy / cloud deploy)
-#   Option B — add Tailscale to this workflow:
-#              uses: tailscale/github-action@v2
-#              with: { oauth-client-id: ..., oauth-secret: ..., tags: tag:ci }
-#              then add: export: file,http  and  http-url: ${{ vars.RUNRIGHT_URL }}
+# Uses standalone mode so RunRight monitors the full pipeline as a single session and posts
+# exactly one PR comment with machine recommendations at the end.
+# On pushes to main, if RunRight finds a cheaper machine it automatically opens a PR.
 
 on: [push, pull_request]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
 
       - name: Install dependencies
-        uses: gbudjeakp/run-right@v1.2.3
+        uses: gbudjeakp/run-right@v1
         with:
-          run: npm install
-          version: v1.2.3
+          run: npm ci
+          job-id: devops-learn-github-hosted-install
           export: file
-          job-id: devops-learn-hosted-install
+          pr-comment: "false"
 
       - name: Lint
-        uses: gbudjeakp/run-right@v1.2.3
+        uses: gbudjeakp/run-right@v1
         with:
           run: npm run lint
-          version: v1.2.3
+          job-id: devops-learn-github-hosted-lint
           export: file
-          job-id: devops-learn-hosted-lint
+          pr-comment: "false"
 
       - name: Test
-        uses: gbudjeakp/run-right@v1.2.3
+        uses: gbudjeakp/run-right@v1
         with:
           run: npm run test:run
-          version: v1.2.3
+          job-id: devops-learn-github-hosted-test
           export: file
-          job-id: devops-learn-hosted-test
+          pr-comment: "false"
 
       - name: Build
-        uses: gbudjeakp/run-right@v1.2.3
+        id: rr
+        uses: gbudjeakp/run-right@v1
         with:
           run: npm run build
-          version: v1.2.3
+          job-id: devops-learn-github-hosted-build
           export: file
-          job-id: devops-learn-hosted-build
+          pr-comment: "true"
+          upload-artifact: "true"
+
+      - name: Auto-PR with machine recommendation
+        if: >
+          always() &&
+          steps.rr.outputs.suggested-machine != '' &&
+          steps.rr.outputs.suggested-machine != steps.rr.outputs.detected-machine &&
+          github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUGGESTED: ${{ steps.rr.outputs.suggested-machine }}
+          DETECTED: ${{ steps.rr.outputs.detected-machine }}
+          RECS_JSON: ${{ steps.rr.outputs.recommendation-json }}
+        run: |
+          set -e
+
+          BRANCH="runright/recommend-${SUGGESTED}-$(date +%Y%m%d%H%M%S)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+
+          # Parse estimated monthly savings from recommendation JSON
+          SAVINGS=$(echo "$RECS_JSON" | jq -r '
+            if type == "array" and length > 0
+            then .[0] | (.cost_delta_usd_monthly // .cost_delta // empty) | . as $d |
+              if $d != null then "~$\(($d | fabs | . * 100 | round / 100))/mo" else empty end
+            else empty end
+          ' 2>/dev/null || true)
+
+          TITLE="RunRight: right-size CI runner to \`${SUGGESTED}\`"
+          [ -n "$SAVINGS" ] && TITLE="RunRight: right-size CI runner to \`${SUGGESTED}\` (save ${SAVINGS})"
+
+          # Write recommendation record into repo
+          mkdir -p .github
+          cat > .github/runright-latest-recommendation.md << EOF
+          ## RunRight Machine Recommendation
+
+          RunRight analysed the last CI run on \`main\` and found a more cost-effective option.
+
+          | | Machine |
+          |---|---|
+          | **Detected** | \`${DETECTED}\` |
+          | **Recommended** | \`${SUGGESTED}\` |
+          $([ -n "$SAVINGS" ] && echo "| **Estimated saving** | ${SAVINGS} |")
+
+          ### What to change
+
+          Update the \`runs-on:\` value in \`.github/workflows/ci.yml\` (or the Jenkins agent label
+          in \`Jenkinsfile\`) to match \`${SUGGESTED}\` or an equivalent self-hosted runner.
+
+          <details>
+          <summary>Full recommendation JSON</summary>
+
+          \`\`\`json
+          ${RECS_JSON}
+          \`\`\`
+          </details>
+
+          ---
+          *Opened automatically by [RunRight](https://github.com/gbudjeakp/run-right)*
+          EOF
+
+          git add .github/runright-latest-recommendation.md
+          git commit -m "RunRight: recommend ${SUGGESTED} (detected: ${DETECTED})"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "$TITLE" \
+            --body "$(cat .github/runright-latest-recommendation.md)" \
+            --base main
